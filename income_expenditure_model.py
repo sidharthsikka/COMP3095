@@ -15,10 +15,14 @@ for row in df_2000.iterrows():
             df_2000.loc[index,col] = 0
 
 # Delete any country where there is no trade
-    for col in df_2000.columns:
-        if df_2000[col].sum() == 0 and sum(df_2000.loc[col].tolist()) == 0:
-            df_2000.drop(col, axis=1)
-            df_2000.drop(col, axis=0)
+for col in df_2000.columns:
+    if df_2000[col].sum() == 0 and sum(df_2000.loc[col].tolist()) == 0:
+        df_2000.drop(col, axis=1)
+        df_2000.drop(col, axis=0)
+
+# Original Data is expressed in millions of dollars so this will bring them all to dollars
+for col in df_2000.columns:
+    df_2000[col] = df_2000[col] * 1000000
 
 G = nx.DiGraph()
 for i in df_2000.columns.values:
@@ -48,7 +52,7 @@ for col in df_2000.columns:
 alpha = [] #combines i and o to give a propensity to spend for a sector by putting o/i if i>o else 1
 for i in range(len(df_2000.columns)):
     if(in_strength[i] > out_strength[i]):
-        if out_strength[i] != 0:
+        if out_strength[i] != 0: #ASSUMPTION
             alpha.append(in_strength[i]/out_strength[i])
         else:
             alpha.append((in_strength[i]))
@@ -63,18 +67,19 @@ for i in range(len(df_2000.columns)):
 m = [] #for each connection i-j we normalize it by dividing the money going out to j by the total money going out
 y = df_2000.columns
 for i in range(len(out_strength)):
-    m.append(df_2000[y[i]]/out_strength[i])
+    if out_strength[i] != 0: #ASSUMPTION
+        m.append((df_2000[y[i]]/out_strength[i]).tolist())
+    else:
+        m.append(df_2000[y[i]])
 M = np.matmul(np.diag(out_strength),m) #diagonal matrix of o multiply m
 one = [1 for _ in range(len(df_2000.columns))]
 E = np.matmul(np.matmul(np.diag(np.transpose(alpha)), np.transpose(M)),np.transpose(one)) + beta
 amplification_post = [] # for each shock this stores the amplification score for plotting
 amplification_pre = []
-for i in range(len(df_2000.columns)):
+for col in df_2000.columns:
     M_T = []
     M_T.append(M)
-    for j in range(len(M)):
-        if i==j:
-            M[j] = 0
+    #TODO SHOCK INPUT FOR EACH INDUSTRY AND THEN EXPENDITURE UPDATE
     M_1 = [] #Depending on the kind of shock you have to populate this and pass it into M_T, calculate E1 and pass it to E_T and then iterate with the below for loop
     E_T = []
     E_T.append(E)
