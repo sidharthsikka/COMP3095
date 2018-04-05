@@ -7,12 +7,12 @@ from multiprocessing import Pool
 import pickle
 from operator import itemgetter
 from networkx.algorithms import approximation as approx
-import plotly
-import plotly.plotly as py
-import plotly.graph_objs as go
+# import plotly
+# import plotly.plotly as py
+# import plotly.graph_objs as go
 import random
 import collections
-plotly.tools.set_credentials_file(username='sidharthsikka', api_key='qb4RJVlP2OJQm41AUpcE')
+# plotly.tools.set_credentials_file(username='sidharthsikka', api_key='qb4RJVlP2OJQm41AUpcE')
 
 def rmse(predictions, targets):
 	return np.sqrt(((predictions - targets) ** 2).mean())
@@ -72,6 +72,23 @@ def model_intialization(df_2000):
 	one = [1.0 for _ in range(len(df_2000.columns))]
 	E = np.matmul(np.matmul(np.diag(alpha), np.transpose(M)), one) + beta
 	return alpha, beta, one, m, M, E
+
+def edge_deformation_shock(temp):
+	#TODO fix up iteration, amplification and vulnerability
+	alpha, beta, one, m, M, E, start, end, degrade = temp # start and end here are pairs of nodes
+	print("START EDGE DEGREDATION SHOCKS FOR NODE PAIR ", start, " AND ", end)
+	M_1 = copy.deepcopy(M)
+	M_1[i][j] = M_1[i][j] * degrade
+	for j in range(1, 100):
+		E_T.append(np.matmul(np.matmul(np.diag(alpha), np.transpose(M_T[j])),one) + beta)
+		M_T.append(np.matmul(np.diag(E_T[j]), m))
+		rms = rmse(np.array(E_T[j]), np.array(E_T[j-1]))
+		if rms <= 10:
+			break
+	expenditure_difference_post = E_T[len(E_T)-1] - E_T[1] 
+	expenditure_difference_pre = E_T[len(E_T)-1] - E_T[0]
+	print("FINISHED EDGE DEGREDATION SHOCKS FOR NODE PAIR ", start, " AND ", end)
+	return sum(expenditure_difference_post), sum(expenditure_difference_pre)
 
 def bilateral_trade_deletion_shock(temp):
 	alpha, beta, one, m, M, E, source, end = temp
@@ -149,7 +166,6 @@ def node_deletion_shock(temp):
 	vulnerability = list()
 	vulnerability = [0 for _ in range(len(E))]
 	for i in range(start, end+1):
-		print("NODE ", i , " BEING DELETED")
 		M_next = copy.deepcopy(M)
 		M_next[i] = [0 for _ in range(len(M_next[i]))]
 		new_m = copy.deepcopy(m)
@@ -214,7 +230,7 @@ def get_importance(y,E):
 	return importance_table
 
 def aggregated_node_deletion():
-	years = list(range(2000,2015))
+	years = list(range(2000,2001))
 	for year in years:
 		df_2000 = pd.read_pickle('WIOD_Data/pickled_data/' + str(year) + '.pkl')
 		countries = []
@@ -249,42 +265,41 @@ def aggregated_node_deletion():
 		flatten_vul = results[1]
 		for i in range(len(flatten_vul)):
 			flatten_vul[i] /= len(E)
-		# plt.scatter(E, flatten_vul)
-		# plt.title('Vulnerability vs Expenditure')
-		# plt.xlabel('Expenditure')
-		# plt.ylabel('Vulnerability')
-		# plt.savefig(str(year) + '_agg_evsvul.png')
-		# plt.clf()
-		temp = zip(flatten_vul, flatten_amp,E,countries)
-		vul_sort = list(temp)
-		amp_sort = copy.deepcopy(vul_sort)
-		E_sort = copy.deepcopy(vul_sort)
-		vul_sort.sort(key=lambda tup: tup[0])
-		amp_sort.sort(key=lambda tup: tup[1])
-		E_sort.sort(key=lambda tup: tup[2])
-		x_val = list()
-		y_val = list()
-		z_val = list()
-		nodes = list()
-		for i in range(len(E_sort)):
-			for j in range(len(amp_sort)):
-				for z in range(len(vul_sort)):
-					if E_sort[i][3] == vul_sort[z][3] and E_sort[i][3] == amp_sort[j][3]:
-						x_val.append(i+1)
-						y_val.append(j+1)
-						nodes.append(E_sort[i][3])
-						z_val.append(z+1)
-						break
-		trace = go.Table(
-		    header=dict(values=['Countries','Vulnerability','Amplification'],
-		                fill = dict(color='#C2D4FF'),
-		                align = ['left'] * 5),
-		    cells=dict(values=[nodes,z_val, y_val],
-		               fill = dict(color='#F5F8FF'),
-		               align = ['left'] * 5))
+		# temp = zip(flatten_vul, flatten_amp,E,countries)
+		# vul_sort = list(temp)
+		# amp_sort = copy.deepcopy(vul_sort)
+		# E_sort = copy.deepcopy(vul_sort)
+		# vul_sort.sort(key=lambda tup: tup[0])
+		# amp_sort.sort(key=lambda tup: tup[1])
+		# E_sort.sort(key=lambda tup: tup[2])
+		# x_val = list()
+		# y_val = list()
+		# z_val = list()
+		# nodes = list()
+		# for i in range(len(E_sort)):
+		# 	for j in range(len(amp_sort)):
+		# 		for z in range(len(vul_sort)):
+		# 			if E_sort[i][3] == vul_sort[z][3] and E_sort[i][3] == amp_sort[j][3]:
+		# 				x_val.append(i+1)
+		# 				y_val.append(j+1)
+		# 				nodes.append(E_sort[i][3])
+		# 				z_val.append(z+1)
+		# 				break
+		results = (countries,flatten_amp,flatten_vul,E)
+		# f = 'results_agg_ranking_' + str(year) + '.pickle' 
+		# with open(f, 'wb') as f:
+		# 	pickle.dump(results, f)
+		# trace = go.Table(
+		#     header=dict(values=['Countries','Vulnerability','Amplification'],
+		#                 fill = dict(color='#C2D4FF'),
+		#                 align = ['left'] * 5),
+		#     cells=dict(values=[nodes,z_val, y_val],
+		#                fill = dict(color='#F5F8FF'),
+		#                align = ['left'] * 5))
 
-		data = [trace] 
-		plotly.offline.plot(data, filename = str(year) + '_table.html')
+		# data = [trace] 
+		# plotly.offline.plot(data, filename = str(year) + '_table.html')
+		return results
 		print(year, " DONE")
 
 def null_model(df):
@@ -302,49 +317,54 @@ def null_model(df):
 	for i in range(len(s_out)):
 		x_out.append(s_out[i]/sum(s_out))
 		x_in.append(s_in[i]/sum(s_in))
-	z = 1800000 # Between 1,700,000 and 1,800,000
+	z = 170000000000 # Between 1,700,000 and 1,800,000
 	p = 0
 	ad = list()
 	degree = 0
-	zeros = [0]*len(s_in)
-	for i in range(len(s_out)):
+	for i in range(len(x_out)):
+		zeros = [0 for _ in range(len(x_in))]
 		ad.append(zeros)
-		for j in range(len(s_in)):
+		for j in range(len(x_in)):
 			if i!=j:
 				p = (z*x_out[i]*x_in[j])/(1+(z*x_out[i]*x_in[j]))
 				r =  random.uniform(0,1)
-				print(r)
 				if p>r:
 					degree += 1
 					ad[i][j] = 1
-	# print("START")
-	# while True:
-	# 	temp_row = [0] * len(s_out)
-	# 	temp_col = [0] * len(s_in)
-	# 	print("START ROW")
-	# 	for i in range(len(s_out)):
-	# 		for j in range(len(s_in)):
-	# 			if ad[i][j]!=0:
-	# 				ad[i][j] = ((ad[i][j]/sum(ad[i]))*s_out[i])
-	# 				temp_row[i] += ad[i][j]
-	# 	print("START COL")
-	# 	for i in range(len(s_in)):
-	# 		for j in range(len(s_out)):
-	# 			if ad[j][i]!=0:
-	# 				ad[j][i] = ((ad[j][i]/sum(row[i] for row in ad))*s_in[i])
-	# 				temp_col[i] += ad[j][i]
-	# 	print("DOING ERROR")
-	# 	error = convergence(temp_row,temp_col,s_out,s_in)
-	# 	print(error)
-	# 	if error<0.1:
-	# 		break
+	for _ in range(0,10): # while true
+		temp_row = [0] * len(x_out)
+		temp_col = [0] * len(x_in)
+		print("row")
+		for i in range(len(x_out)):
+			y = s_out[i]
+			s = sum(ad[i])
+			for j in range(len(x_in)):
+				if ad[i][j]!=0:
+					prev = ad[i][j]
+					ad[i][j] = ((ad[i][j]/s)*y)
+					temp_row[i] += ad[i][j]
+					s += (ad[i][j] - prev)
+		print("col")
+		for i in range(len(x_in)):
+			y = s_in[i]
+			s = sum(row[i] for row in ad)
+			for j in range(len(x_out)):
+				if ad[j][i]!=0:
+					prev = ad[j][i]
+					ad[j][i] = ((ad[j][i]/s)* y)
+					temp_col[i] += ad[j][i]
+					s += (ad[j][i] - prev)
+		error = convergence(temp_row,temp_col,s_out,s_in)
+		print(error)
+		if error<0.1: # remove nodes not in play from error calculation
+			break
 
 def convergence(temp_row, temp_col,s_out,s_in):
-	return rmse(np.array(temp_row)+np.array(temp_col), np.array(s_out)+np.array(s_in))
+	return rmse((np.array(temp_row) + np.array(temp_col)), (np.array(s_in) + np.array(s_out)))
 
 
 def country_aggregated_node_deletion():
-	years = list(range(2000,2015))
+	years = list(range(2000,2001))
 	for year in years:
 		df_2000 = pd.read_pickle('WIOD_Data/pickled_data/' + str(year) + '.pkl')
 		countries = []
@@ -402,18 +422,123 @@ def country_aggregated_node_deletion():
 				amplification.append(0)
 		for j in range(len(vulnerability)):
 			vulnerability[j] /= len(vulnerability)
-		size = np.array(size)
-		size = np.sqrt(np.array(size)/np.min(size[np.nonzero(size)]))
-		plt.scatter(amplification, vulnerability,size)
-		plt.title('Amplification vs Vulnerability')
-		plt.xlabel('Vulnerability')
-		plt.ylabel('Amplification')
-		plt.savefig(str(year) + '_country_agg_ampvsvul_size.png')
-		plt.clf()
+		# temp = zip(vulnerability, amplification,E,countries)
+		# vul_sort = list(temp)
+		# amp_sort = copy.deepcopy(vul_sort)
+		# E_sort = copy.deepcopy(vul_sort)
+		# vul_sort.sort(key=lambda tup: tup[0])
+		# amp_sort.sort(key=lambda tup: tup[1])
+		# E_sort.sort(key=lambda tup: tup[2])
+		# x_val = list()
+		# y_val = list()
+		# z_val = list()
+		# nodes = list()
+		# for i in range(len(E_sort)):
+		# 	for j in range(len(amp_sort)):
+		# 		for z in range(len(vul_sort)):
+		# 			if E_sort[i][3] == vul_sort[z][3] and E_sort[i][3] == amp_sort[j][3]:
+		# 				x_val.append(i+1)
+		# 				y_val.append(j+1)
+		# 				nodes.append(E_sort[i][3])
+		# 				z_val.append(z+1)
+		# 				break
+		results = (countries,amplification,vulnerability,E)
+		# f = 'results_aggnet_ranking_' + str(year) + '.pickle' 
+		# with open(f, 'wb') as f:
+		# 	pickle.dump(results, f)
+		return results
+		print(year, " DONE")
+
+		# size = np.array(size)
+		# size = np.sqrt(np.array(size)/np.min(size[np.nonzero(size)]))
+		# plt.scatter(amplification, vulnerability,size)
+		# plt.title('Amplification vs Vulnerability')
+		# plt.xlabel('Vulnerability')
+		# plt.ylabel('Amplification')
+		# plt.savefig(str(year) + '_country_agg_ampvsvul_size.png')
+		# plt.clf()
 
 if __name__ == "__main__":
-	df_2000 = pd.read_pickle('WIOD_Data/pickled_data/2000.pkl')
-	null_model(df_2000)
+	# years = list(range(2000,2015))
+	# for year in years:
+	# 	df = pd.read_pickle('WIOD_Data/pickled_data/' + str(year) + '.pkl')
+	# 	nodes = len(df.columns)
+	# 	count = 0
+	# 	for row in df.columns:
+	# 		for col in df.columns:
+	# 			count += df.loc[row,col]
+	# 	print(count/nodes)
+	print("starting")
+	directory_matrix = 'E:/nullmodel/matrix/'
+	directory_amp = 'E:/nullmodel/amplification/'
+	years = list(range(2000,2015))
+	nums = list(range(0,2))
+	assort = []
+	for year in years:
+		for num in nums:
+			file = directory_matrix + str(year) + '_' + str(num) + '_null_model_all_node_deformation_Output.csv'
+			df = pd.read_csv(file, header=None)
+			G = nx.DiGraph()
+			edges = list()
+			for row in range(len(df.columns)):
+				for col in range(len(df.columns)):
+					if col!=row and df.loc[row,col]!=0.0:
+						edges.append((row,col,df.loc[row,col]))
+			G.add_weighted_edges_from(edges)
+			assort.append(nx.degree_assortativity_coefficient(G))
+			print("FINISHED ", str(num))
+		print("FINISHED ", str(year))
+	print("Assortativity: ", assort)
+	# directory_amp = 'E:/nullmodel/amplification/'
+	# years = list(range(2000,2015))
+	# for year in years:
+	# 	results = pickle.load(open('avgdeg_assort_null_' + str(year) + '.pickle','rb'))
+	# 	print(results[0][0])
+	# 	file = directory_amp + str(year) + '_99_null_model_all_node_deformation_amplification.csv'
+	# 	amp = pd.read_csv(file, header=None, usecols=[1])
+	# 	print(amp.loc[0,1])
+	# agg = aggregated_node_deletion()
+	# co_agg = country_aggregated_node_deletion()
+	# years = list(range(2000,2001))
+	# for year in years:
+	# 	# f = 'results_aggnet_ranking_' + str(year) + '.pickle'
+	# 	# aggnet = pickle.load(open(f, "rb"))
+	# 	# x = 'results_agg_ranking_' + str(year) + '.pickle'
+	# 	# agg = pickle.load(open(x, "rb"))
+	# 	aggnet_nodes, aggnet_x, aggnet_y, aggnet_z = co_agg
+	# 	agg_nodes, agg_x, agg_y, agg_z = agg
+	# 	amp = []
+	# 	vul = []
+	# 	for node in aggnet_nodes:
+	# 		for sub in range(len(agg_nodes)):
+	# 			if(node == agg_nodes[sub]):
+	# 				amp.append(agg_x[sub])
+	# 				vul.append(agg_y[sub])
+	# 				break;
+	# 	print(amp)
+	# 	print(aggnet_x)
+		# plt.scatter(amp,aggnet_x)
+		# plt.title("Amplification Ranking")
+		# plt.xlabel("Country network")
+		# plt.ylabel("Industry network")
+		# plt.savefig(str(year) + '_agg_ranking.png')
+		# plt.clf()
+		# plt.scatter(vul,aggnet_y)
+		# plt.title("Vulnerability Ranking")
+		# plt.xlabel("Country network")
+		# plt.ylabel("Industry network")
+		# plt.savefig(str(year) + '_vul_ranking.png')
+		# plt.clf()
+
+	# years = list(range(2000,2015))
+	# for year in years:
+	# 	G = nx.read_gpickle(str(year) + '_graph.gpickle')
+	# 	nnodes = G.number_of_nodes()
+	# 	print(G.edges)
+	# rand_G = nx.erdos_renyi_graph(nnodes,avg_deg, directed = True)
+	# print(rand_G.edges())
+	# df_2000 = pd.read_pickle('WIOD_Data/pickled_data/2000.pkl')
+	# null_model(df_2000)
 	# years = list(range(2000,2015))
 	# for year in years:
 	# 	df_2000 = pd.read_pickle('WIOD_Data/pickled_data/' + str(year) + '.pkl')
@@ -427,7 +552,6 @@ if __name__ == "__main__":
 	# 	nx.write_gpickle(G,str(year) + "_graph.gpickle")
 	# 	print("FINISHED ", str(year))
 
-	# G = nx.read_gpickle('2000_graph.gpickle')
 	# nodes_centrality = nx.degree_centrality(G) # can do for in-degree and out-degree respectively and at the same time there is a method for betweeness centrality
 	# r = nx.degree_assortativity_coefficient(G)
 	# print(r)
